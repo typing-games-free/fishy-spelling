@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fishy Spelling – A Spelling Typing Game for Kids</title>
+<meta name="description" content="Fishy Spelling is a typing game for kids set in a bright, bubbly pond. Eat the floating letters in the right order to spell each picture word.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --deep:#0a3d62;
+    --sea:#0e6ba8;
+    --foam:#eaf9ff;
+    --sun:#ffb23f;
+    --coral:#ff7a1a;
+    --ink:#0c4a6e;
+    --font:"Fredoka","Baloo 2","Nunito","Trebuchet MS","Comic Sans MS",system-ui,sans-serif;
+    --emoji:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji","Twemoji Mozilla",sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;overflow:hidden;background:var(--deep);font-family:var(--font),var(--emoji);color:var(--ink)}
+  #stage{position:absolute;left:50%;top:50%;width:960px;height:540px;transform-origin:center center;overflow:hidden;background:#3fb4e5;user-select:none;-webkit-user-select:none}
+  canvas{display:block;width:960px;height:540px}
+
+  .screen{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(8,60,100,.38)}
+  .hidden{display:none !important}
+  .panel{background:rgba(255,255,255,.94);border-radius:30px;padding:22px 34px 20px;text-align:center;box-shadow:0 18px 0 rgba(8,60,100,.18),0 24px 50px rgba(0,0,0,.28);border:4px solid #fff}
+  #start .panel{width:620px}
+  #reward .panel,#paused .panel{width:560px}
+
+  .logo-fish{font-size:50px;line-height:1;font-family:var(--emoji);display:inline-block;animation:bob 2.4s ease-in-out infinite}
+  h1{margin:4px 0 0;font-size:60px;line-height:1.05;font-weight:700;color:var(--sea);letter-spacing:.5px;text-shadow:0 3px 0 #bfe9fb}
+  h2{margin:0;font-size:44px;line-height:1.1;font-weight:700;color:var(--sea);text-shadow:0 3px 0 #bfe9fb}
+  .tagline{margin:6px 0 0;font-size:23px;font-weight:600;color:var(--coral)}
+  .about{margin:12px auto 0;font-size:18px;line-height:1.35;font-weight:400;max-width:480px}
+  .chips{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:14px 0 0}
+  .chip{background:var(--foam);border:2px solid #b8e4f7;border-radius:999px;padding:5px 14px;font-size:15px;font-weight:600;color:var(--ink)}
+  .btn{margin-top:16px;font:700 32px var(--font);color:#fff;border:0;border-radius:999px;padding:12px 56px 14px;cursor:pointer;background:linear-gradient(#ffc15e,#ff7a1a);box-shadow:0 6px 0 #c85a08,0 12px 22px rgba(0,0,0,.25);transition:transform .08s,box-shadow .08s}
+  .btn:hover{filter:brightness(1.06)}
+  .btn:active{transform:translateY(5px);box-shadow:0 1px 0 #c85a08,0 4px 10px rgba(0,0,0,.25)}
+  .btn:focus-visible,.site:focus-visible{outline:4px solid #0e6ba8;outline-offset:4px}
+  .site{display:inline-block;margin-top:14px;font-size:17px;font-weight:600;color:var(--sea);text-decoration:none;border-bottom:2px solid #bfe9fb}
+  .site:hover{color:var(--coral);border-color:var(--coral)}
+  .sub{margin:8px 0 0;font-size:21px;font-weight:600;color:var(--ink)}
+
+  #newFish{font-family:var(--emoji);font-size:92px;line-height:1.1;margin:6px 0 0;animation:hop 1.1s ease-in-out infinite}
+  .aqua{display:flex;gap:6px;justify-content:center;margin:10px auto 0;padding:8px 12px;width:fit-content;background:linear-gradient(#c9f1ff,#82d0f2);border:3px solid #fff;border-radius:20px;box-shadow:inset 0 0 0 2px #9edcf5}
+  .slot{width:58px;height:58px;display:grid;place-items:center;font-family:var(--emoji);font-size:38px}
+  .slot.empty{filter:brightness(0);opacity:.2}
+  .slot.new{animation:pop .7s cubic-bezier(.2,1.6,.4,1)}
+  .aqua-label{margin:12px 0 0;font-size:16px;font-weight:600;color:var(--sea)}
+  .hint{margin:10px 0 0;font-size:18px;font-weight:600}
+
+  @keyframes bob{0%,100%{transform:translateY(0) rotate(-4deg)}50%{transform:translateY(-8px) rotate(4deg)}}
+  @keyframes hop{0%,100%{transform:translateY(0)}50%{transform:translateY(-12px)}}
+  @keyframes pop{0%{transform:scale(0)}100%{transform:scale(1)}}
+  @media (prefers-reduced-motion:reduce){.logo-fish,#newFish,.slot.new{animation:none}}
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="game" width="1920" height="1080" aria-label="Fishy Spelling game"></canvas>
+
+  <div id="start" class="screen">
+    <div class="panel">
+      <div class="logo-fish" aria-hidden="true">🐠</div>
+      <h1>Fishy Spelling</h1>
+      <p class="tagline">A Spelling Typing Game for Kids</p>
+      <p class="about">Look at the picture card, then press the keys to feed your little fish the floating letters in the right order.</p>
+      <div class="chips">
+        <span class="chip">No timer, no pressure</span>
+        <span class="chip">Needs a physical keyboard</span>
+        <span class="chip">Esc pauses</span>
+      </div>
+      <button id="playBtn" class="btn" type="button">Play</button>
+      <div><a class="site" href="https://typinggamesfree.io/" target="_blank" rel="noopener">typinggamesfree.io</a></div>
+    </div>
+  </div>
+
+  <div id="reward" class="screen hidden">
+    <div class="panel">
+      <h2 id="rewardTitle">Pond 1 complete!</h2>
+      <p class="sub" id="rewardSub">You caught a new fish for your aquarium!</p>
+      <div id="newFish" aria-hidden="true">🐠</div>
+      <div class="aqua" id="aqua" aria-label="Your aquarium"></div>
+      <p class="aqua-label">Your aquarium</p>
+      <button id="rewardBtn" class="btn" type="button">Next Pond</button>
+    </div>
+  </div>
+
+  <div id="paused" class="screen hidden">
+    <div class="panel">
+      <h2>Paused</h2>
+      <p class="hint">Press Esc to keep playing.</p>
+      <button id="resumeBtn" class="btn" type="button">Resume</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ---------- setup ---------- */
+  var W = 960, H = 540;
+  var cv = document.getElementById('game');
+  var ctx = cv.getContext('2d');
+  var stage = document.getElementById('stage');
+  var FONT = '"Fredoka","Baloo 2","Nunito","Trebuchet MS","Comic Sans MS",system-ui,sans-serif';
+  var EMOJI = '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji","Twemoji Mozilla",sans-serif';
+
+  var startScreen = document.getElementById('start');
+  var rewardScreen = document.getElementById('reward');
+  var pausedScreen = document.getElementById('paused');
+  var rewardTitle = document.getElementById('rewardTitle');
+  var rewardSub = document.getElementById('rewardSub');
+  var newFishEl = document.getElementById('newFish');
+  var aquaEl = document.getElementById('aqua');
+  var rewardBtn = document.getElementById('rewardBtn');
+
+  function fit() {
+    var s = Math.min(window.innerWidth / W, window.innerHeight / H);
+    stage.style.transform = 'translate(-50%,-50%) scale(' + s + ')';
+  }
+  window.addEventListener('resize', fit);
+  fit();
+  if (document.fonts && document.fonts.load) {
+    document.fonts.load('700 30px Fredoka').catch(function () {});
+  }
+
+  /* ---------- helpers ---------- */
+  function rnd(a, b) { return a + Math.random() * (b - a); }
+  function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+  function shuffle(a) {
+    for (var i = a.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var t = a[i]; a[i] = a[j]; a[j] = t;
+    }
+    return a;
+  }
+  function rr(x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+  function easeOutBack(t) {
+    var c1 = 1.70158, c3 = c1 + 1;
+    return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
+  }
+  function starPath(x, y, r, rot) {
+    ctx.beginPath();
+    for (var i = 0; i < 8; i++) {
+      var a = rot + i * Math.PI / 4;
+      var rad = i % 2 ? r * 0.35 : r;
+      ctx.lineTo(x + Math.cos(a) * rad, y + Math.sin(a) * rad);
+    }
+    ctx.closePath();
+  }
+  function outlinedText(txt, x, y) {
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = 'rgba(10,70,110,.75)';
+    ctx.lineJoin = 'round';
+    ctx.strokeText(txt, x, y);
+    ctx.fillText(txt, x, y);
+  }
+
+  /* ---------- content ---------- */
+  var WORDS = {
+    3: [['SUN','☀️'],['CAT','🐱'],['DOG','🐶'],['PIG','🐷'],['BEE','🐝'],['HAT','🎩'],['COW','🐮'],['BUS','🚌'],
+        ['EGG','🥚'],['KEY','🔑'],['BED','🛏️'],['CAR','🚗'],['FOX','🦊'],['OWL','🦉'],['ANT','🐜'],['BAT','🦇']],
+    4: [['FROG','🐸'],['FISH','🐟'],['BIRD','🐦'],['DUCK','🦆'],['MOON','🌙'],['STAR','⭐'],['TREE','🌳'],['CAKE','🎂'],
+        ['BOAT','⛵'],['BEAR','🐻'],['LION','🦁'],['SHIP','🚢'],['MILK','🥛'],['CORN','🌽'],['ROSE','🌹'],['DRUM','🥁'],['BELL','🔔']],
+    5: [['APPLE','🍎'],['HORSE','🐴'],['TIGER','🐯'],['ZEBRA','🦓'],['SNAKE','🐍'],['WHALE','🐳'],['TRAIN','🚆'],['HOUSE','🏠'],
+        ['PIZZA','🍕'],['ROBOT','🤖'],['HEART','❤️'],['CLOUD','☁️'],['MOUSE','🐭'],['PANDA','🐼'],['SHARK','🦈'],['LEMON','🍋'],
+        ['GRAPE','🍇'],['BREAD','🍞'],['PLANE','✈️']],
+    6: [['RABBIT','🐰'],['TURTLE','🐢'],['MONKEY','🐵'],['ROCKET','🚀'],['BANANA','🍌'],['ORANGE','🍊'],['FLOWER','🌸'],
+        ['CHEESE','🧀'],['PARROT','🦜'],['GUITAR','🎸'],['PENCIL','✏️'],['CARROT','🥕'],['TOMATO','🍅'],['CASTLE','🏰']]
+  };
+  // Each pond: word length and how many letters float in the water.
+  var PONDS = [
+    { len: 3, n: 7 },
+    { len: 3, n: 8 },
+    { len: 4, n: 10 },
+    { len: 4, n: 11 },
+    { len: 5, n: 13 },
+    { len: 6, n: 15 }
+  ];
+  var WORDS_PER_POND = 4;
+  var REWARDS = ['🐠', '🐡', '🐙', '🦑', '🐬', '🦀'];
+  var ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+
+  /* ---------- state ---------- */
+  var state = 'start';           // start | play | reward | pause
+  var pond = 0, pondWords = [], wordIdx = 0, completedWords = 0;
+  var word = null, progress = 0, cardT = 0, celebrate = 0;
+  var letters = [], fx = [], collected = [], used = {};
+  var T = 0;
+
+  var fish = { x: 170, y: 340, homeX: 170, homeY: 340, face: 1, chomp: 0, wobble: 0, swim: false, chase: null };
+
+  var amb = [];
+  for (var ai = 0; ai < 22; ai++) amb.push({ x: rnd(0, W), y: rnd(0, H), r: rnd(2, 6), v: rnd(12, 34), ph: rnd(0, 6.28) });
+
+  /* ---------- letters ---------- */
+  function makeLetters(wordStr, n) {
+    var need = wordStr.split('');
+    var pool = need.slice();
+    var others = shuffle(ALPHABET.filter(function (c) { return need.indexOf(c) < 0; }));
+    var i = 0;
+    while (pool.length < n) { pool.push(others[i % others.length]); i++; }
+    shuffle(pool);
+
+    var rows = Math.min(5, Math.ceil(n / 3));
+    var rowLetters = [];
+    for (var r = 0; r < rows; r++) rowLetters.push([]);
+    pool.forEach(function (c, k) { rowLetters[k % rows].push(c); });
+
+    var out = [], top = 205, hh = 270, span = 1020;
+    rowLetters.forEach(function (arr, r) {
+      var y = top + hh * (r + 0.5) / rows;
+      var dir = r % 2 ? -1 : 1;
+      var speed = 30 + ((r * 13) % 17);
+      var off = Math.random() * span;
+      arr.forEach(function (c, k) {
+        var x = ((off + k * span / arr.length) % span) - 30;
+        out.push({ ch: c, x: x, y: y, baseY: y, dir: dir, speed: speed, phase: rnd(0, 6.28),
+                   alpha: 0, leaving: false, eaten: false, eatT: 0, scale: 1 });
+      });
+    });
+    return out;
+  }
+
+  function pickWords(len, count) {
+    var list = WORDS[len];
+    var fresh = list.filter(function (w) { return !used[w[0]]; });
+    if (fresh.length < count) {
+      list.forEach(function (w) { delete used[w[0]]; });
+      fresh = list.slice();
+    }
+    var picked = shuffle(fresh).slice(0, count);
+    picked.forEach(function (w) { used[w[0]] = true; });
+    return picked;
+  }
+
+  /* ---------- flow ---------- */
+  function show(el) { el.classList.remove('hidden'); }
+  function hide(el) { el.classList.add('hidden'); }
+
+  function startGame() {
+    collected = [];
+    used = {};
+    pond = 0;
+    hide(startScreen);
+    hide(rewardScreen);
+    hide(pausedScreen);
+    window.focus();
+    beginPond();
+  }
+
+  function beginPond() {
+    pondWords = pickWords(PONDS[pond].len, WORDS_PER_POND);
+    wordIdx = 0;
+    completedWords = 0;
+    nextWord();
+  }
+
+  function nextWord() {
+    var w = pondWords[wordIdx++];
+    word = { str: w[0], emoji: w[1] };
+    progress = 0;
+    cardT = 0;
+    celebrate = 0;
+    letters.forEach(function (l) { if (!l.eaten) l.leaving = true; });
+    letters = letters.concat(makeLetters(word.str, PONDS[pond].n));
+    state = 'play';
+  }
+
+  function completeWord() {
+    completedWords++;
+    celebrate = 1.5;
+    letters.forEach(function (l) { if (!l.eaten) l.leaving = true; });
+    sparkle();
+  }
+
+  function afterCelebrate() {
+    if (completedWords >= WORDS_PER_POND) showReward();
+    else nextWord();
+  }
+
+  function showReward() {
+    state = 'reward';
+    var last = pond >= PONDS.length - 1;
+    var got = REWARDS[pond];
+    collected.push(got);
+    rewardTitle.textContent = last ? 'All ponds complete!' : 'Pond ' + (pond + 1) + ' complete!';
+    rewardSub.textContent = last ? 'Your aquarium is full. Amazing spelling!' : 'You caught a new fish for your aquarium!';
+    newFishEl.textContent = got;
+    aquaEl.innerHTML = '';
+    REWARDS.forEach(function (f, i) {
+      var d = document.createElement('div');
+      d.className = 'slot' + (i < collected.length ? '' : ' empty') + (i === collected.length - 1 ? ' new' : '');
+      d.textContent = f;
+      aquaEl.appendChild(d);
+    });
+    rewardBtn.textContent = last ? 'Play Again' : 'Next Pond';
+    show(rewardScreen);
+    rewardBtn.focus();
+  }
+
+  function pauseGame() {
+    if (state !== 'play') return;
+    state = 'pause';
+    show(pausedScreen);
+  }
+  function resumeGame() {
+    if (state !== 'pause') return;
+    state = 'play';
+    hide(pausedScreen);
+    window.focus();
+  }
+
+  function primaryAction() {
+    if (state === 'start') startGame();
+    else if (state === 'reward') {
+      if (pond >= PONDS.length - 1) startGame();
+      else { pond++; hide(rewardScreen); window.focus(); beginPond(); }
+    } else if (state === 'pause') resumeGame();
+  }
+
+  /* ---------- input ---------- */
+  function pickLetter(ch) {
+    var best = null, bd = 1e9;
+    letters.forEach(function (l) {
+      if (l.eaten || l.leaving || l.ch !== ch) return;
+      var on = l.x >= 26 && l.x <= 934;
+      var d = Math.abs(l.x - fish.x) + Math.abs(l.y - fish.y) + (on ? 0 : 2000);
+      if (d < bd) { bd = d; best = l; }
+    });
+    return best;
+  }
+
+  function onLetter(ch) {
+    if (state !== 'play' || celebrate > 0 || !word) return;
+    if (ch === word.str[progress]) {
+      var l = pickLetter(ch);
+      if (l) { l.eaten = true; l.eatT = 0; fish.chase = l; }
+      fish.chomp = 1;
+      progress++;
+      if (progress >= word.str.length) completeWord();
+    } else {
+      // wrong key: just pop a bubble, nothing is lost
+      fish.wobble = 1;
+      fx.push({ type: 'bubble', x: fish.x + fish.face * 38, y: fish.y - 4, vy: -110, life: 0.55, max: 0.55, r: 12, ph: rnd(0, 6) });
+    }
+  }
+
+  window.addEventListener('keydown', function (e) {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      if (state === 'play') pauseGame();
+      else if (state === 'pause') resumeGame();
+      return;
+    }
+    if (e.key === 'Enter') {
+      if (state !== 'play') { e.preventDefault(); primaryAction(); }
+      return;
+    }
+    if (e.key && e.key.length === 1 && /[a-zA-Z]/.test(e.key)) {
+      if (state === 'play') {
+        e.preventDefault();
+        if (!e.repeat) onLetter(e.key.toUpperCase());
+      }
+    }
+  });
+
+  document.getElementById('playBtn').addEventListener('click', primaryAction);
+  rewardBtn.addEventListener('click', primaryAction);
+  document.getElementById('resumeBtn').addEventListener('click', primaryAction);
+
+  /* ---------- effects ---------- */
+  function sparkle() {
+    var colors = ['#ffd60a', '#ff7eb6', '#7afcff', '#b8f27b', '#ffffff'];
+    var n = word.str.length;
+    var cw = Math.max(250, n * 54 - 8 + 64);
+    for (var i = 0; i < 40; i++) {
+      var px = W / 2 + rnd(-cw / 2, cw / 2);
+      var py = 12 + rnd(0, 156);
+      fx.push({ type: 'star', x: px, y: py, vx: rnd(-150, 150), vy: rnd(-170, 40), rot: rnd(0, 6), vr: rnd(-5, 5),
+                r: rnd(7, 16), life: rnd(1, 1.6), max: 1.6, color: colors[i % colors.length] });
+    }
+  }
+
+  function popAt(x, y, r) {
+    fx.push({ type: 'pop', x: x, y: y, r: r, life: 0.3, max: 0.3 });
+  }
+
+  /* ---------- update ---------- */
+  function update(dt) {
+    cardT += dt;
+
+    if (state === 'play' && celebrate > 0) {
+      celebrate -= dt;
+      if (celebrate <= 0) { celebrate = 0; afterCelebrate(); }
+    }
+
+    // letters
+    for (var i = letters.length - 1; i >= 0; i--) {
+      var l = letters[i];
+      if (l.eaten) {
+        var mx = fish.x + fish.face * 36, my = fish.y + 4;
+        var dx = mx - l.x, dy = my - l.y, k = Math.min(1, dt * 9);
+        l.x += dx * k; l.y += dy * k; l.eatT += dt;
+        var d = Math.hypot(dx, dy);
+        l.scale = clamp(d / 70, 0, 1);
+        if (d < 10 || l.eatT > 1) {
+          popAt(mx, my, 10);
+          if (fish.chase === l) fish.chase = null;
+          letters.splice(i, 1);
+        }
+        continue;
+      }
+      l.x += l.dir * l.speed * dt;
+      if (l.dir > 0 && l.x > 990) l.x = -30;
+      if (l.dir < 0 && l.x < -30) l.x = 990;
+      l.y = l.baseY + Math.sin(T * 1.4 + l.phase) * 3;
+      l.alpha += ((l.leaving ? 0 : 1) - l.alpha) * Math.min(1, dt * (l.leaving ? 3 : 4));
+      if (l.leaving && l.alpha < 0.04) letters.splice(i, 1);
+    }
+
+    // fish
+    var tx = fish.homeX, ty = fish.homeY + Math.sin(T * 2) * 8;
+    if (fish.chase && fish.chase.eaten) {
+      var c = fish.chase;
+      var s = Math.sign(c.x - fish.x) || fish.face;
+      tx = c.x - s * 34;
+      ty = c.y;
+    }
+    tx = clamp(tx, 40, 920);
+    ty = clamp(ty, 200, 470);
+    var fdx = tx - fish.x, fdy = ty - fish.y;
+    var fk = Math.min(1, dt * (fish.chase ? 7 : 2.2));
+    fish.x += fdx * fk;
+    fish.y += fdy * fk;
+    if (Math.abs(fdx) > 10) fish.face = Math.sign(fdx);
+    fish.swim = Math.hypot(fdx, fdy) > 12;
+    fish.chomp = Math.max(0, fish.chomp - dt * 3);
+    fish.wobble = Math.max(0, fish.wobble - dt * 2.5);
+
+    // effects
+    for (var j = fx.length - 1; j >= 0; j--) {
+      var f = fx[j];
+      f.life -= dt;
+      if (f.type === 'star') {
+        f.x += f.vx * dt; f.y += f.vy * dt; f.vy += 80 * dt; f.rot += f.vr * dt;
+      } else if (f.type === 'bubble') {
+        f.y += f.vy * dt; f.x += Math.sin(T * 12 + f.ph) * 14 * dt;
+        if (f.life <= 0) popAt(f.x, f.y, f.r);
+      }
+      if (f.life <= 0) fx.splice(j, 1);
+    }
+
+    // ambient bubbles
+    amb.forEach(function (a) {
+      a.y -= a.v * dt;
+      if (a.y < -10) { a.y = H + 10; a.x = rnd(0, W); }
+    });
+  }
+
+  /* ---------- drawing ---------- */
+  function seaweed(x, h, color, ph) {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 9;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    var px = x, py = 512;
+    ctx.moveTo(px, py);
+    for (var i = 1; i <= 4; i++) {
+      var yy = 512 - h * i / 4;
+      var xx = x + Math.sin(T * 1.3 + ph + i * 0.8) * (6 * i);
+      ctx.quadraticCurveTo((px + xx) / 2 + Math.sin(T * 1.3 + ph + i) * 4, (py + yy) / 2, xx, yy);
+      px = xx; py = yy;
+    }
+    ctx.stroke();
+  }
+
+  function drawBackground() {
+    var g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, '#a6ecff');
+    g.addColorStop(0.55, '#3fb4e5');
+    g.addColorStop(1, '#126aa8');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+
+    // light rays
+    ctx.fillStyle = 'rgba(255,255,255,.07)';
+    for (var i = 0; i < 5; i++) {
+      var x0 = 80 + i * 200 + Math.sin(T * 0.3 + i) * 40;
+      ctx.beginPath();
+      ctx.moveTo(x0, 0); ctx.lineTo(x0 + 60, 0); ctx.lineTo(x0 + 170, H); ctx.lineTo(x0 - 90, H);
+      ctx.closePath(); ctx.fill();
+    }
+
+    // sand
+    var sg = ctx.createLinearGradient(0, 490, 0, H);
+    sg.addColorStop(0, '#f6e2b3');
+    sg.addColorStop(1, '#e0c083');
+    ctx.fillStyle = sg;
+    ctx.beginPath();
+    ctx.moveTo(0, 505);
+    ctx.quadraticCurveTo(160, 484, 330, 504);
+    ctx.quadraticCurveTo(520, 522, 700, 498);
+    ctx.quadraticCurveTo(840, 482, W, 502);
+    ctx.lineTo(W, H); ctx.lineTo(0, H); ctx.closePath();
+    ctx.fill();
+
+    seaweed(52, 90, '#2ea66a', 0);
+    seaweed(84, 62, '#47c585', 1.7);
+    seaweed(905, 96, '#2ea66a', 3);
+    seaweed(878, 58, '#47c585', 4.4);
+    seaweed(470, 54, '#3bb978', 2.2);
+
+    // rocks and a pink coral
+    ctx.fillStyle = '#86a3b8';
+    ctx.beginPath(); ctx.ellipse(250, 514, 30, 15, 0, 0, 7); ctx.fill();
+    ctx.fillStyle = '#a2bbcb';
+    ctx.beginPath(); ctx.ellipse(266, 508, 16, 9, 0, 0, 7); ctx.fill();
+    ctx.fillStyle = '#86a3b8';
+    ctx.beginPath(); ctx.ellipse(720, 518, 26, 12, 0, 0, 7); ctx.fill();
+    ctx.strokeStyle = '#ff8fb1'; ctx.lineWidth = 7; ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(640, 512); ctx.lineTo(640, 482); ctx.moveTo(640, 498); ctx.lineTo(626, 484); ctx.moveTo(640, 494); ctx.lineTo(654, 480);
+    ctx.stroke();
+
+    // ambient bubbles
+    amb.forEach(function (a) {
+      var x = a.x + Math.sin(T + a.ph) * 6;
+      ctx.beginPath(); ctx.arc(x, a.y, a.r, 0, 7);
+      ctx.fillStyle = 'rgba(255,255,255,.16)'; ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 1.5; ctx.stroke();
+    });
+  }
+
+  function drawLetter(l, isNext) {
+    ctx.save();
+    ctx.globalAlpha = clamp(l.alpha, 0, 1);
+    ctx.translate(l.x, l.y);
+    ctx.scale(l.scale, l.scale);
+    var r = 24;
+    if (isNext) {
+      ctx.shadowColor = 'rgba(255,214,10,.95)';
+      ctx.shadowBlur = 16 + 8 * Math.sin(T * 5);
+    }
+    var g = ctx.createRadialGradient(-7, -8, 3, 0, 0, r);
+    g.addColorStop(0, 'rgba(255,255,255,.95)');
+    g.addColorStop(1, 'rgba(225,245,255,.72)');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(0, 0, r, 0, 7); ctx.fill();
+    ctx.shadowBlur = 0; ctx.shadowColor = 'transparent';
+    ctx.lineWidth = isNext ? 4 : 2.5;
+    ctx.strokeStyle = isNext ? '#ffc400' : 'rgba(255,255,255,.95)';
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,.9)';
+    ctx.beginPath(); ctx.ellipse(-8, -11, 6, 3.5, -0.6, 0, 7); ctx.fill();
+    ctx.fillStyle = isNext ? '#8a4b00' : '#0c4a6e';
+    ctx.font = '700 28px ' + FONT;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(l.ch, 0, 2);
+    ctx.restore();
+  }
+
+  function drawFish() {
+    var bob = fish.swim ? 0 : 0;
+    ctx.save();
+    ctx.translate(fish.x, fish.y + bob);
+    ctx.rotate(Math.sin(T * 30) * 0.22 * fish.wobble);
+    ctx.scale(fish.face, 1);
+    var wig = Math.sin(T * (fish.swim ? 14 : 6)) * 0.25;
+
+    // tail
+    ctx.save();
+    ctx.translate(-30, 0);
+    ctx.rotate(wig);
+    ctx.fillStyle = '#ff7a1a';
+    ctx.beginPath();
+    ctx.moveTo(6, 0);
+    ctx.quadraticCurveTo(-14, -18, -36, -24);
+    ctx.quadraticCurveTo(-24, 0, -36, 24);
+    ctx.quadraticCurveTo(-14, 18, 6, 0);
+    ctx.fill();
+    ctx.restore();
+
+    // dorsal fin
+    ctx.fillStyle = '#ff9a3c';
+    ctx.beginPath();
+    ctx.moveTo(-16, -20);
+    ctx.quadraticCurveTo(0, -44, 16, -20);
+    ctx.closePath();
+    ctx.fill();
+
+    // body
+    var bg = ctx.createLinearGradient(0, -26, 0, 26);
+    bg.addColorStop(0, '#ff9a2e');
+    bg.addColorStop(1, '#ff6a10');
+    ctx.fillStyle = bg;
+    ctx.beginPath(); ctx.ellipse(0, 0, 36, 25, 0, 0, 7); ctx.fill();
+
+    // stripes
+    ctx.save();
+    ctx.beginPath(); ctx.ellipse(0, 0, 36, 25, 0, 0, 7); ctx.clip();
+    ctx.fillStyle = 'rgba(255,255,255,.88)';
+    ctx.fillRect(-16, -30, 8, 60);
+    ctx.fillRect(4, -30, 6, 60);
+    ctx.fillStyle = 'rgba(255,230,170,.65)';
+    ctx.beginPath(); ctx.ellipse(2, 16, 28, 10, 0, 0, 7); ctx.fill();
+    ctx.restore();
+
+    // side fin
+    ctx.fillStyle = '#ffb066';
+    ctx.beginPath();
+    ctx.moveTo(-4, 6);
+    ctx.quadraticCurveTo(-18, 20 + wig * 12, -8, 26);
+    ctx.quadraticCurveTo(4, 18, -4, 6);
+    ctx.fill();
+
+    // eye
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(18, -7, 8, 0, 7); ctx.fill();
+    ctx.fillStyle = '#12304a';
+    ctx.beginPath(); ctx.arc(20, -7, 4.2, 0, 7); ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(21.5, -8.6, 1.5, 0, 7); ctx.fill();
+
+    // cheek
+    ctx.fillStyle = 'rgba(255,110,120,.5)';
+    ctx.beginPath(); ctx.arc(22, 6, 5, 0, 7); ctx.fill();
+
+    // mouth
+    var open = fish.chomp;
+    if (open > 0.05) {
+      ctx.fillStyle = '#8a2b0a';
+      ctx.beginPath(); ctx.ellipse(33, 4, 4 + open * 5, 2 + open * 8, 0, 0, 7); ctx.fill();
+    } else {
+      ctx.strokeStyle = '#8a2b0a'; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.arc(28, 2, 7, 0.2, 1.3); ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawCard() {
+    var n = word.str.length;
+    var slot = 46, gap = 8;
+    var cw = Math.max(250, n * (slot + gap) - gap + 64);
+    var chh = 156, x = (W - cw) / 2, y = 12;
+    var a = Math.min(1, cardT / 0.45);
+    var sc = easeOutBack(a);
+    var pulse = 1;
+    if (celebrate > 0) pulse = 1 + 0.05 * Math.sin((1.5 - celebrate) * 10) * Math.min(1, celebrate * 2);
+
+    ctx.save();
+    ctx.translate(W / 2, y + chh / 2);
+    ctx.scale(sc * pulse, sc * pulse);
+    ctx.translate(-W / 2, -(y + chh / 2));
+
+    ctx.shadowColor = celebrate > 0 ? 'rgba(255,214,10,.95)' : 'rgba(8,60,100,.35)';
+    ctx.shadowBlur = celebrate > 0 ? 26 : 14;
+    ctx.shadowOffsetY = celebrate > 0 ? 0 : 5;
+    ctx.fillStyle = '#fff';
+    rr(x, y, cw, chh, 24); ctx.fill();
+    ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = celebrate > 0 ? '#ffc400' : '#b8e4f7';
+    rr(x, y, cw, chh, 24); ctx.stroke();
+
+    // picture
+    var jump = celebrate > 0 ? -Math.abs(Math.sin((1.5 - celebrate) * 7)) * 10 : 0;
+    ctx.font = '62px ' + EMOJI;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#000';
+    ctx.fillText(word.emoji, W / 2, y + 52 + jump);
+
+    // letter slots
+    var sx = W / 2 - (n * slot + (n - 1) * gap) / 2;
+    var sy = y + chh - 38 - slot / 2;
+    for (var i = 0; i < n; i++) {
+      var bx = sx + i * (slot + gap);
+      var done = i < progress;
+      var isNext = i === progress && celebrate <= 0;
+      var by = sy + (celebrate > 0 ? -Math.abs(Math.sin((1.5 - celebrate) * 8 + i * 0.5)) * 6 : 0);
+      if (done) {
+        ctx.fillStyle = '#c8f7d0'; ctx.strokeStyle = '#2fbf71'; ctx.lineWidth = 3;
+      } else if (isNext) {
+        ctx.fillStyle = '#fff8dc'; ctx.strokeStyle = '#ffc400'; ctx.lineWidth = 4 + Math.sin(T * 6) * 1;
+      } else {
+        ctx.fillStyle = '#eaf6ff'; ctx.strokeStyle = '#bcd8ee'; ctx.lineWidth = 3;
+      }
+      rr(bx, by, slot, slot, 12); ctx.fill(); ctx.stroke();
+      ctx.font = '700 30px ' + FONT;
+      ctx.fillStyle = done ? '#1f9d57' : isNext ? '#b36b00' : 'rgba(40,90,130,.45)';
+      ctx.fillText(word.str[i], bx + slot / 2, by + slot / 2 + 2);
+    }
+    ctx.restore();
+  }
+
+  function drawHUD() {
+    // pond label
+    ctx.fillStyle = 'rgba(255,255,255,.9)';
+    rr(16, 14, 150, 34, 17); ctx.fill();
+    ctx.fillStyle = '#0e6ba8';
+    ctx.font = '700 19px ' + FONT;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('Pond ' + (pond + 1) + ' of ' + PONDS.length, 91, 32);
+    // word dots
+    for (var i = 0; i < WORDS_PER_POND; i++) {
+      ctx.beginPath(); ctx.arc(34 + i * 26, 66, 9, 0, 7);
+      ctx.fillStyle = i < completedWords ? '#ffc400' : 'rgba(255,255,255,.55)';
+      ctx.fill();
+      ctx.lineWidth = 2.5; ctx.strokeStyle = '#fff'; ctx.stroke();
+    }
+    // aquarium
+    for (var k = 0; k < REWARDS.length; k++) {
+      var cx = W - 24 - (REWARDS.length - 1 - k) * 32;
+      if (k < collected.length) {
+        ctx.font = '24px ' + EMOJI; ctx.fillStyle = '#000';
+        ctx.fillText(REWARDS[k], cx, 31);
+      } else {
+        ctx.beginPath(); ctx.arc(cx, 31, 11, 0, 7);
+        ctx.fillStyle = 'rgba(255,255,255,.25)'; ctx.fill();
+        ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.stroke();
+      }
+    }
+    ctx.font = '600 15px ' + FONT;
+    ctx.fillStyle = '#fff';
+    ctx.textAlign = 'right';
+    outlinedText('Esc: Pause', W - 16, 60);
+  }
+
+  function drawFx() {
+    fx.forEach(function (f) {
+      var a = clamp(f.life / f.max, 0, 1);
+      ctx.save();
+      ctx.globalAlpha = a;
+      if (f.type === 'star') {
+        ctx.fillStyle = f.color;
+        starPath(f.x, f.y, f.r, f.rot);
+        ctx.fill();
+      } else if (f.type === 'bubble') {
+        ctx.beginPath(); ctx.arc(f.x, f.y, f.r, 0, 7);
+        ctx.fillStyle = 'rgba(255,255,255,.35)'; ctx.fill();
+        ctx.strokeStyle = '#fff'; ctx.lineWidth = 2.5; ctx.stroke();
+        ctx.fillStyle = 'rgba(255,255,255,.9)';
+        ctx.beginPath(); ctx.arc(f.x - f.r * 0.35, f.y - f.r * 0.35, f.r * 0.22, 0, 7); ctx.fill();
+      } else if (f.type === 'pop') {
+        var p = 1 - a;
+        ctx.strokeStyle = '#fff'; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.arc(f.x, f.y, f.r * (1 + p * 1.1), 0, 7); ctx.stroke();
+        ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+        for (var i = 0; i < 6; i++) {
+          var ang = i * Math.PI / 3 + 0.3;
+          var r0 = f.r * (1.2 + p * 1.2), r1 = r0 + 6 + p * 4;
+          ctx.beginPath();
+          ctx.moveTo(f.x + Math.cos(ang) * r0, f.y + Math.sin(ang) * r0);
+          ctx.lineTo(f.x + Math.cos(ang) * r1, f.y + Math.sin(ang) * r1);
+          ctx.stroke();
+        }
+      }
+      ctx.restore();
+    });
+  }
+
+  function draw() {
+    ctx.setTransform(2, 0, 0, 2, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+    drawBackground();
+
+    var nextCh = (state === 'play' && celebrate <= 0 && word) ? word.str[progress] : null;
+    letters.forEach(function (l) {
+      drawLetter(l, !!nextCh && !l.eaten && !l.leaving && l.ch === nextCh);
+    });
+    drawFish();
+    drawFx();
+    if (word && state !== 'start') {
+      drawHUD();
+      drawCard();
+    }
+  }
+
+  /* ---------- main loop ---------- */
+  letters = makeLetters('FISH', 10);   // gentle floating letters behind the start screen
+
+  var last = performance.now();
+  function frame(now) {
+    var dt = Math.min((now - last) / 1000, 0.05);
+    last = now;
+    if (state !== 'pause') { T += dt; update(dt); }
+    draw();
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+  document.getElementById('playBtn').focus();
+})();
+</script>
+</body>
+</html>
